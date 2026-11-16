@@ -31,10 +31,10 @@ const version = packagejson.version;
 const DEMO_PORT = process.env.DEMO_PORT || 4141;
 const WISP_PORT = process.env.WISP_PORT || 4142;
 
+// When VITE_WISP_URL is unset, the demo connects to /wisp/ on its own origin,
+// which works behind tunnels and remote previews where localhost:4142 is unreachable.
 if (process.env.VITE_WISP_URL) {
 	process.env.VITE_WISP_URL = normalizeWebsocketUrl(process.env.VITE_WISP_URL);
-} else {
-	process.env.VITE_WISP_URL = `ws://localhost:${WISP_PORT}/`;
 }
 
 const wispserver = http.createServer((req, res) => {
@@ -56,10 +56,17 @@ const server = await createServer({
 	server: {
 		port: Number(DEMO_PORT),
 		strictPort: true,
+		allowedHosts: [".v0.build", ".vusercontent.net"],
 	},
 });
 
 warnOnUrlEscape(server);
+
+server.httpServer?.on("upgrade", (req, socket, head) => {
+	if (req.url?.startsWith("/wisp/")) {
+		wisp.routeRequest(req, socket, head);
+	}
+});
 
 await server.listen();
 
